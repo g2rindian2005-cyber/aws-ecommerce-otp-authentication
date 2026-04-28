@@ -18,5 +18,8 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
       - name: Run app
-        run: python app.py
+        run: python backend/app.py
