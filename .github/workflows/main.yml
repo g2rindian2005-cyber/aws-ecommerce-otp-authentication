@@ -19,7 +19,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -28,9 +28,17 @@ jobs:
 
       - name: Start Flask app
         run: |
-          python backend/app.py &
-          sleep 10
+          python backend/app.py > flask.log 2>&1 &
+          sleep 15
 
-      - name: Verify application is running
+      - name: Check Flask Logs
         run: |
-          curl -L --fail http://127.0.0.1:5000/api
+          cat flask.log
+
+      - name: Verify Flask Process
+        run: |
+          ps -ef | grep python
+
+      - name: Health Check
+        run: |
+          curl --fail http://127.0.0.1:5000/api/ || curl --fail http://127.0.0.1:5000/api
