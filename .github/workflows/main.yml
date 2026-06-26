@@ -1,4 +1,4 @@
-name: CI/CD Deploy to EC2 using AWS SSM
+name: CI/CD Deploy to EC2
 
 on:
   push:
@@ -27,12 +27,12 @@ jobs:
       - name: Start Flask App
         run: |
           cd backend
-          nohup python app.py &
+          nohup python app.py > flask.log 2>&1 &
           sleep 15
 
       - name: Health Check
         run: |
-          curl --fail http://127.0.0.1:5000/api
+          curl --fail http://127.0.0.1:5000/api/ || curl --fail http://127.0.0.1:5000/api
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -44,10 +44,10 @@ jobs:
       - name: Deploy to EC2 using SSM
         run: |
           aws ssm send-command \
-            --instance-ids "${{ secrets.INSTANCE_ID }}" \
+            --targets "Key=tag:Name,Values=MyServer" \
             --document-name "AWS-RunShellScript" \
             --comment "GitHub Actions Deployment" \
-            --parameters commands='[
+            --parameters 'commands=[
               "cd /home/ec2-user/aws-ecommerce-otp-authentication/backend",
               "git pull origin main",
               "pip3 install -r requirements.txt",
