@@ -70,7 +70,7 @@ def signup_request():
 
     try:
         msg = Message("Google Store - Verify Registration", sender=app.config['MAIL_USERNAME'], recipients=[email])
-        msg.body = f"Hello {username}, your registration  from veera sir naresh itOTP is {otp}. It expires in 10 minutes."
+        msg.body = f"Hello {username}, your registration  from gokul itOTP is {otp}. It expires in 10 minutes."
         mail.send(msg)
         return jsonify({"message": "OTP sent to email!"}), 200
     except Exception as e:
