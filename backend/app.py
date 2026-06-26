@@ -40,7 +40,7 @@ def get_db_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 ###-------Health check ---------------------------
-@app.route("/api", methods=["GET"])
+@app.route("/api/", methods=["GET"])
 @app.route("/api/", methods=["GET"])
 def api_root():
     return jsonify({
