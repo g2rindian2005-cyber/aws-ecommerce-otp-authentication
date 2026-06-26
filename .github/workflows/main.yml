@@ -1,19 +1,16 @@
-name: Python CI
+name: CI/CD Deploy to EC2 using AWS SSM
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -21,24 +18,39 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
+          cd backend
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          pip install -r requirements.txt
 
-      - name: Start Flask app
+      - name: Start Flask App
         run: |
-          python backend/app.py > flask.log 2>&1 &
+          cd backend
+          nohup python app.py &
           sleep 15
-
-      - name: Check Flask Logs
-        run: |
-          cat flask.log
-
-      - name: Verify Flask Process
-        run: |
-          ps -ef | grep python
 
       - name: Health Check
         run: |
-          curl --fail http://127.0.0.1:5000/api/ || curl --fail http://127.0.0.1:5000/api
+          curl --fail http://127.0.0.1:5000/api
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to EC2 using SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ secrets.INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "GitHub Actions Deployment" \
+            --parameters commands='[
+              "cd /home/ec2-user/aws-ecommerce-otp-authentication/backend",
+              "git pull origin main",
+              "pip3 install -r requirements.txt",
+              "pkill -f app.py || true",
+              "nohup python3 app.py > app.log 2>&1 &"
+            ]'
