@@ -4,26 +4,26 @@ on:
   push:
     branches:
       - main
-      
-    permissions:
-  
-    -token: write
-      contents: read
 
+# Required for GitHub OIDC
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::739013795335:role/OIDC_ROLE
+          role-to-assume: arn:aws:iam::615037471716:role/OIDC-role
           aws-region: us-east-1
+
 
       - name: Setup Python
         uses: actions/setup-python@v5
