@@ -1,11 +1,10 @@
-name: CI/CD Deploy to EC2
+name: Deploy Frontend and Backend to EC2
 
 on:
   push:
     branches:
       - main
 
-# Required for GitHub OIDC
 permissions:
   id-token: write
   contents: read
@@ -15,49 +14,69 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # 1. Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 2. Authenticate AWS using OIDC
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::898961940126:role/OIDC-jawan
           aws-region: us-east-1
 
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Dependencies
+      # 3. Deploy to EC2 through SSM
+      - name: Deploy to EC2
         run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Start Flask App
-        run: |
-          cd backend
-          nohup python app.py > flask.log 2>&1 &
-          sleep 15
-
-      - name: Health Check
-        run: |
-          curl --fail http://52.23.159.101:5000/api/ || curl --fail http://52.23.159.101:5000/api
-
-     
-
-      - name: Deploy to EC2 using SSM
-        run: |
-          aws ssm send-command \
+          COMMAND_ID=$(aws ssm send-command \
             --targets "Key=tag:Name,Values=MyServer" \
             --document-name "AWS-RunShellScript" \
-            --comment "GitHub Actions Deployment" \
+            --comment "Deploy Frontend and Backend" \
             --parameters 'commands=[
-              "cd /home/ec2-user/aws-ecommerce-otp-authentication/backend",
-              "git pull origin main",
+              "set -e",
+
+              "cd /home/ec2-user/aws-ecommerce-otp-authentication",
+
+              "echo Pulling latest code...",
+              "git fetch origin main",
+              "git reset --hard origin/main",
+
+              "echo Installing backend dependencies...",
+              "cd backend",
               "pip3 install -r requirements.txt",
-              "pkill -f app.py || true",
-              "nohup python3 app.py > app.log 2>&1 &"
-            ]'
+
+              "echo Restarting backend...",
+              "pkill -f \"python3 app.py\" || true",
+              "nohup python3 app.py > app.log 2>&1 &",
+
+              "echo Building frontend...",
+              "cd ../frontend",
+              "npm install",
+              "npm run build",
+
+              "echo Testing Nginx...",
+              "sudo nginx -t",
+
+              "echo Reloading Nginx...",
+              "sudo systemctl reload nginx",
+
+              "echo Deployment completed!"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          echo "Waiting for deployment..."
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$(aws ec2 describe-instances \
+              --filters \
+              "Name=tag:Name,Values=MyServer" \
+              "Name=instance-state-name,Values=running" \
+              --query "Reservations[0].Instances[0].InstanceId" \
+              --output text)"
+
+          echo "Deployment finished!"
