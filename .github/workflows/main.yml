@@ -44,7 +44,7 @@ jobs:
 
       - name: Health Check
         run: |
-          curl --fail http://127.0.0.1:5000/api/ || curl --fail http://127.0.0.1:5000/api
+          curl --fail http://52.23.159.101:5000/api/ || curl --fail http://52.23.159.101:5000/api
 
      
 
