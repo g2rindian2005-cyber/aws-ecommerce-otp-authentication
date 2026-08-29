@@ -1,0 +1,48 @@
+name: CI/CD Deploy to EC2 (via Public IP / SSH)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:   # lets you trigger it manually from the Actions tab too
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}          # EC2 public IP or Elastic IP
+          username: ${{ secrets.EC2_USER }}      # e.g. ec2-user (Amazon Linux) or ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}        # contents of your .pem private key
+          port: 22
+          script: |
+            set -e
+            cd /home/ec2-user/aws-ecommerce-otp-authentication
+
+            echo ">>> Pulling latest code"
+            git pull origin main
+
+            echo ">>> Installing backend dependencies"
+            cd backend
+            source venv/bin/activate
+            pip install -r requirements.txt
+            deactivate
+
+            echo ">>> Restarting backend service"
+            sudo systemctl restart microapp
+            sudo systemctl status microapp --no-pager
+
+            echo ">>> Deploying frontend"
+            sudo cp -r /home/ec2-user/aws-ecommerce-otp-authentication/frontend/* /usr/share/nginx/html/
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+      - name: Health Check (via public IP)
+        run: |
+          curl --fail http://${{ secrets.EC2_HOST }}/api/ || curl --fail http://${{ secrets.EC2_HOST }}/api
